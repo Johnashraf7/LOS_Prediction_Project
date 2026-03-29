@@ -1,0 +1,5 @@
+catboost==1.2.10
+joblib==1.5.2
+numpy==2.4.4
+pandas==3.0.1
+streamlit==1.50.0
