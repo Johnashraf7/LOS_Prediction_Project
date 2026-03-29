@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -124,35 +125,50 @@ st.markdown("""
 @st.cache_resource
 def load_model_and_features():
     """Load the CatBoost model and extract expected features"""
+    model_path = Path(__file__).resolve().parent / "Catboost_Model_LOS.pkl"
+
+    if not model_path.exists():
+        st.error(f"Model file not found at: {model_path}")
+        return None, None
+
+    load_errors = []
+
     try:
         from catboost import CatBoostRegressor
         model = CatBoostRegressor()
-        model.load_model('Catboost_Model_LOS.pkl')
-        
-        # Try to get expected feature names
+        model.load_model(str(model_path))
+
         expected_features = None
         try:
             if hasattr(model, 'feature_names_'):
                 expected_features = model.feature_names_
             elif hasattr(model, 'get_feature_names'):
                 expected_features = model.get_feature_names()
-        except:
+        except Exception:
             pass
-            
+
         return model, expected_features
-    except:
-        try:
-            import joblib
-            model = joblib.load('Catboost_Model_LOS.pkl')
-            return model, None
-        except:
-            try:
-                with open('Catboost_Model_LOS.pkl', 'rb') as f:
-                    model = pickle.load(f)
-                return model, None
-            except:
-                st.error("❌ Failed to load model. Please check if 'Catboost_Model_LOS.pkl' exists.")
-                return None, None
+    except Exception as exc:
+        load_errors.append(f"CatBoost load failed: {exc}")
+
+    try:
+        import joblib
+        model = joblib.load(model_path)
+        return model, None
+    except Exception as exc:
+        load_errors.append(f"joblib load failed: {exc}")
+
+    try:
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        return model, None
+    except Exception as exc:
+        load_errors.append(f"pickle load failed: {exc}")
+
+    st.error("Failed to load the model file.")
+    st.code("`n".join(load_errors))
+    return None, None
+
 
 # ── Helper functions ───────────────────────────────────────────────────────────
 def predict_los(model, input_data, expected_features=None):
@@ -554,3 +570,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
