@@ -124,7 +124,7 @@ st.markdown("""
 # ── Model loader with column extraction ────────────────────────────────────────
 @st.cache_resource
 def load_model_and_features():
-    """Load the CatBoost model and extract expected features"""
+    """Load the saved model and extract expected features when available."""
     model_path = Path(__file__).resolve().parent / "Catboost_Model_LOS.pkl"
 
     if not model_path.exists():
@@ -132,6 +132,22 @@ def load_model_and_features():
         return None, None
 
     load_errors = []
+
+    try:
+        import joblib
+        model = joblib.load(model_path)
+        expected_features = getattr(model, "feature_names_", None)
+        return model, expected_features
+    except Exception as exc:
+        load_errors.append(f"joblib load failed: {exc}")
+
+    try:
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        expected_features = getattr(model, "feature_names_", None)
+        return model, expected_features
+    except Exception as exc:
+        load_errors.append(f"pickle load failed: {exc}")
 
     try:
         from catboost import CatBoostRegressor
@@ -150,20 +166,6 @@ def load_model_and_features():
         return model, expected_features
     except Exception as exc:
         load_errors.append(f"CatBoost load failed: {exc}")
-
-    try:
-        import joblib
-        model = joblib.load(model_path)
-        return model, None
-    except Exception as exc:
-        load_errors.append(f"joblib load failed: {exc}")
-
-    try:
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        return model, None
-    except Exception as exc:
-        load_errors.append(f"pickle load failed: {exc}")
 
     st.error("Failed to load the model file.")
     st.code("`n".join(load_errors))
@@ -570,4 +572,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
